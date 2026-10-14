@@ -1,0 +1,300 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ConnectSpace 💜</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font:16px Arial;background:#f5f0ff;color:#302442}
+header{background:linear-gradient(120deg,#6033b5,#b17af2);color:white;text-align:center;padding:28px 12px}
+main{max-width:650px;width:92%;margin:25px auto}
+.card{background:white;padding:20px;margin:16px 0;border-radius:18px;box-shadow:0 5px 22px #50308015}
+input,textarea{width:100%;padding:12px;margin:8px 0;border:1px solid #ded2f2;border-radius:10px;font:inherit}
+textarea{min-height:85px}
+button{background:#7041c7;color:white;border:0;border-radius:10px;padding:11px 16px;cursor:pointer;font-weight:bold}
+button:hover{filter:brightness(1.08)}
+.light{background:#eee5ff;color:#6031b5}
+.hidden{display:none}
+.status{color:#7041c7;font-size:14px}
+.posthead{display:flex;align-items:center;gap:10px}
+.avatar{background:#e8ddff;border-radius:50%;padding:12px;font-size:22px}
+.date{font-size:12px;color:#888;margin-top:4px}
+.content{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
+footer{text-align:center;color:#887b98;padding:20px}
+@media(max-width:450px){main{width:94%}.card{padding:16px}}
+
+.comments {
+  margin: 12px 0;
+  padding: 8px 12px;
+  background: #f7f3ff;
+  border-radius: 10px;
+  color: #514568;
+  font-size: 14px;
+}
+
+.comments p {
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+
+.card form {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.card form input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #ddd2f7;
+  border-radius: 8px;
+}
+
+.card form button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #7650c9;
+  color: white;
+  cursor: pointer;
+}
+
+</style>
+</head>
+<body>
+<header>
+  <h1>ConnectSpace 💜</h1>
+  <p>Share your thoughts. Connect with everyone.</p>
+</header>
+<main>
+<section class="card" id="auth">
+  <div id="registerPanel">
+    <h2>Create Account ✨</h2>
+    <form id="registerForm">
+      <input id="regName" placeholder="Username (3–30 characters)" minlength="3" maxlength="30" required>
+      <input id="regEmail" type="email" placeholder="Email address" required>
+      <input id="regPass" type="password" placeholder="Password (8+ characters)" minlength="8" required>
+      <button>Create account</button>
+    </form>
+    <p><button class="light" type="button" id="toLogin">Already registered? Login</button></p>
+  </div>
+  <div id="loginPanel" class="hidden">
+    <h2>Welcome back 💜</h2>
+    <form id="loginForm">
+      <input id="loginEmail" type="email" placeholder="Email address" required>
+      <input id="loginPass" type="password" placeholder="Password" required>
+      <button>Login</button>
+    </form>
+    <p><button class="light" type="button" id="toRegister">Create account</button></p>
+  </div>
+  <p class="status" id="authStatus"></p>
+</section>
+
+<section class="card hidden" id="account">
+  Logged in as <strong id="userName"></strong>
+  <button class="light" id="logout">Logout</button>
+</section>
+
+<section class="card">
+  <h2>Share something 💭</h2>
+  <form id="postForm">
+    <input id="postName" placeholder="Your name" maxlength="50" required>
+    <textarea id="postText" placeholder="What's on your mind?" maxlength="2000" required></textarea>
+    <button id="share">＋ Share Post</button>
+  </form>
+  <p class="status" id="postStatus"></p>
+</section>
+
+<section>
+  <h2>Community Feed 🌟</h2>
+  <p class="status" id="loadStatus">Loading posts...</p>
+  <div id="posts"></div>
+</section>
+</main>
+<footer>Made with 💜 using ConnectSpace</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+let user=null;
+
+$("toLogin").onclick=()=>{
+  $("registerPanel").classList.add("hidden");
+  $("loginPanel").classList.remove("hidden");
+  $("authStatus").textContent="";
+};
+$("toRegister").onclick=()=>{
+  $("loginPanel").classList.add("hidden");
+  $("registerPanel").classList.remove("hidden");
+  $("authStatus").textContent="";
+};
+
+async function request(url,data){
+  const r=await fetch(url,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(data)
+  });
+  const d=await r.json();
+  if(!r.ok)throw Error(d.message||"Request failed");
+  return d;
+}
+
+$("registerForm").onsubmit=async e=>{
+  e.preventDefault();
+  try{
+    const d=await request("/api/register",{
+      username:$("regName").value.trim(),
+      email:$("regEmail").value.trim(),
+      password:$("regPass").value
+    });
+    $("authStatus").textContent=d.message+" Please login.";
+    $("registerForm").reset();
+    $("toLogin").click();
+    $("authStatus").textContent=d.message+" Please login.";
+  }catch(e){$("authStatus").textContent=e.message}
+};
+
+$("loginForm").onsubmit=async e=>{
+  e.preventDefault();
+  try{
+    const d=await request("/api/login",{
+      email:$("loginEmail").value.trim(),
+      password:$("loginPass").value
+    });
+    user=d.user;
+    $("userName").textContent=user.username;
+    $("postName").value=user.username;
+    $("postName").readOnly=true;
+    $("account").classList.remove("hidden");
+    $("auth").classList.add("hidden");
+    $("authStatus").textContent="";
+  }catch(e){$("authStatus").textContent=e.message}
+};
+
+$("logout").onclick=()=>{
+  user=null;
+  $("account").classList.add("hidden");
+  $("auth").classList.remove("hidden");
+  $("registerPanel").classList.remove("hidden");
+  $("loginPanel").classList.add("hidden");
+  $("postName").readOnly=false;
+  $("postName").value="";
+};
+
+
+function postCard(p) {
+  const c = document.createElement("article");
+  c.className = "card";
+
+  const h = document.createElement("div");
+  h.className = "posthead";
+  const a = document.createElement("div");
+  a.className = "avatar";
+  a.textContent = "👤";
+
+  const info = document.createElement("div");
+  const n = document.createElement("strong");
+  n.textContent = p.username || "Guest";
+  const date = document.createElement("div");
+  date.className = "date";
+  date.textContent = p.createdAt
+    ? new Date(p.createdAt).toLocaleString() : "Just now";
+  info.append(n, date);
+  h.append(a, info);
+
+  const text = document.createElement("p");
+  text.className = "content";
+  text.textContent = p.content;
+
+  const b = document.createElement("button");
+  b.className = "light";
+  b.textContent = "💜 Like (" + (p.likes || 0) + ")";
+  b.onclick = async () => {
+    try {
+      const r = await fetch(`/api/posts/${p._id}/like`, {
+        method: "PATCH"
+      });
+      const d = await r.json();
+      if (!r.ok) throw Error(d.error || "Like failed");
+      b.textContent = "💜 Like (" + d.likes + ")";
+    } catch (e) { alert(e.message); }
+  };
+
+  const comments = document.createElement("div");
+  comments.className = "comments";
+  (p.comments || []).forEach(cm => {
+    const line = document.createElement("p");
+    line.textContent = (cm.username || "Guest") + ": " + cm.text;
+    comments.append(line);
+  });
+
+  const form = document.createElement("form");
+  const input = document.createElement("input");
+  input.placeholder = "Write a comment...";
+  input.required = true;
+  const send = document.createElement("button");
+  send.textContent = "Comment";
+  form.append(input, send);
+
+  form.onsubmit = async e => {
+    e.preventDefault();
+    send.disabled = true;
+    try {
+      const r = await fetch(`/api/posts/${p._id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: user ? user.username : "Guest",
+          text: input.value.trim()
+        })
+      });
+      const d = await r.json();
+      if (!r.ok) throw Error(d.error || "Comment failed");
+      c.replaceWith(postCard(d));
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      send.disabled = false;
+    }
+  };
+
+  c.append(h, text, b, comments, form);
+  return c;
+}
+
+
+async function loadPosts(){
+  try{
+    const r=await fetch("/api/posts");const data=await r.json();
+    if(!r.ok)throw Error(data.message||"Could not load posts");
+    $("posts").replaceChildren();
+    data.forEach(p=>$("posts").append(postCard(p)));
+    $("loadStatus").textContent=data.length?data.length+" community post(s)":"No posts yet. Be the first! 💜";
+  }catch(e){$("loadStatus").textContent=e.message}
+}
+
+$("postForm").onsubmit=async e=>{
+  e.preventDefault();
+  const username=user?user.username:$("postName").value.trim();
+  const content=$("postText").value.trim();
+  if(!username||!content)return;
+  $("share").disabled=true;
+  try{
+    const r=await fetch("/api/posts",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({username,content})
+    });
+    const p=await r.json();if(!r.ok)throw Error(p.message||"Post failed");
+    $("posts").prepend(postCard(p));
+    $("postText").value="";
+    $("postStatus").textContent="Post shared successfully! 💜";
+  }catch(e){$("postStatus").textContent=e.message}
+  finally{$("share").disabled=false}
+};
+loadPosts();
+</script>
+</body>
+</html>
